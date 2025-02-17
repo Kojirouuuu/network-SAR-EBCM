@@ -1,8 +1,62 @@
-def load_results_np(alpha_values, lambda_values, itr, t_range):
+import numpy as np
+import os
+
+def save_results_np(save_dir, alpha_values, lambda_values, itr, t_range, aa_results, ab_results, a_results, r_results):
     """
-    CSVファイルから結果をNumPy配列として読み込み、多次元配列に再構築する。
+    結果を指定されたディレクトリにCSVファイルとして保存する。
 
     Args:
+        save_dir (str): 保存先のディレクトリ。
+        alpha_values (list): alpha の値のリスト。
+        lambda_values (list): lambda の値のリスト。
+        itr (int): イテレーション数。
+        t_range (int): 時間範囲。
+        aa_results (ndarray): AAの結果配列。
+        ab_results (ndarray): ABの結果配列。
+        a_results (ndarray): Aの結果配列。
+        r_results (ndarray): Rの結果配列。
+    """
+    shape = (len(alpha_values), len(lambda_values), itr, t_range + 1)
+
+    # データサイズの確認
+    expected = np.prod(shape)
+    for data in [aa_results, ab_results, a_results, r_results]:
+        if data.shape != shape:
+            raise ValueError("データサイズが期待される形状と一致しません。")
+
+    # 保存先のディレクトリが存在しない場合は作成
+    os.makedirs(save_dir, exist_ok=True)
+
+    # ファイル名とデータのマッピング
+    results_data = {
+        "aa_results.csv": aa_results,
+        "ab_results.csv": ab_results,
+        "a_results.csv": a_results,
+        "r_results.csv": r_results
+    }
+
+    for filename, data in results_data.items():
+        file_path = os.path.join(save_dir, filename)
+        with open(file_path, "w") as f:
+            # ヘッダー行を書き込む
+            f.write("alpha,lambda,iteration,time,value\n")
+
+            # 各パラメータの組み合わせに対してデータを書き込む
+            for i, alpha in enumerate(alpha_values):
+                for j, lamb in enumerate(lambda_values):
+                    for k in range(itr):
+                        for t in range(t_range + 1):
+                            value = data[i, j, k, t]
+                            f.write(f"{alpha},{lamb},{k},{t},{value}\n")
+
+    print(f"CSVファイルの保存が完了しました。（保存先: {save_dir}）")
+
+def load_results_np(load_dir, alpha_values, lambda_values, itr, t_range):
+    """
+    指定されたディレクトリから結果をNumPy配列として読み込み、多次元配列に再構築する。
+
+    Args:
+        load_dir (str): 読み込み元のディレクトリ。
         alpha_values (list): alphaの値のリスト。
         lambda_values (list): lambdaの値のリスト。
         itr (int): イテレーション数。
@@ -12,25 +66,35 @@ def load_results_np(alpha_values, lambda_values, itr, t_range):
         aa_results, ab_results, a_results, r_results (ndarray): 再構築された結果配列。
     """
     shape = (len(alpha_values), len(lambda_values), itr, t_range + 1)
-    
-    # 各CSVファイルから必要な列（結果列）のみを読み込む
-    # usecols=4 は5番目の列（0始まり）を指します。0: alpha, 1: lambda, 2: iteration, 3: time, 4: 結果
-    aa = np.loadtxt('aa_results.csv', delimiter=',', usecols=4, skiprows=1)
-    ab = np.loadtxt('ab_results.csv', delimiter=',', usecols=4, skiprows=1)
-    a = np.loadtxt('a_results.csv', delimiter=',', usecols=4, skiprows=1)
-    r = np.loadtxt('r_results.csv', delimiter=',', usecols=4, skiprows=1)
-    
+
+    # ファイル名と対応するデータの読み込み
+    results_data = {
+        "aa_results.csv": None,
+        "ab_results.csv": None,
+        "a_results.csv": None,
+        "r_results.csv": None
+    }
+
+    for filename in results_data.keys():
+        file_path = os.path.join(load_dir, filename)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"ファイルが見つかりません: {file_path}")
+
+        # usecols=4 は5番目の列（0始まり）を指します
+        results_data[filename] = np.loadtxt(file_path, delimiter=',', usecols=4, skiprows=1)
+
     # データ数の確認
     expected = np.prod(shape)
-    if aa.size != expected or ab.size != expected or a.size != expected or r.size != expected:
-        raise ValueError("データサイズが期待される形状と一致しません。")
-    
+    for key, data in results_data.items():
+        if data.size != expected:
+            raise ValueError(f"{key} のデータサイズが期待される形状と一致しません。")
+
     # 配列の再構築
-    aa_results = aa.reshape(shape)
-    ab_results = ab.reshape(shape)
-    a_results = a.reshape(shape)
-    r_results = r.reshape(shape)
-    
+    aa_results = results_data["aa_results.csv"].reshape(shape)
+    ab_results = results_data["ab_results.csv"].reshape(shape)
+    a_results = results_data["a_results.csv"].reshape(shape)
+    r_results = results_data["r_results.csv"].reshape(shape)
+
     return aa_results, ab_results, a_results, r_results
 
 def align_to_max(time_series, ref_index):

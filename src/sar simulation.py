@@ -1,10 +1,13 @@
-def initialize_simulation(V, rho0, t_pair):
+import numpy as np
+
+def initialize_simulation(V, rho0, p, t_pair):
     """
     初期状態を設定する。
 
     Args:
         V (int): ノード数。
         rho0 (float): 初期採用者の割合。
+        p (float): 活動家の割合。
         t_pair (tuple): 閾値のペア。
 
     Returns:
@@ -14,7 +17,7 @@ def initialize_simulation(V, rho0, t_pair):
     """
     # 閾値リストを初期化
     threshold_list = np.ones(V) * t_pair[1]
-    threshold_list[:int(p_list[0] * V)] = t_pair[0]
+    threshold_list[:int(p * V)] = t_pair[0]
     
     state = np.zeros(V)  # 0:Sl,1:Sh,2:Aa,3:Ab,4:Ra,5:Rb
     state[threshold_list == t_pair[1]] = 1  # Sh
@@ -22,17 +25,13 @@ def initialize_simulation(V, rho0, t_pair):
     informed = [set() for _ in range(V)]
     initial_adopted = np.random.choice(V, int(V * rho0), replace=False)
     
-    aa_sim = np.zeros(V)
-    ab_sim = np.zeros(V)
     for node in initial_adopted:
         if state[node] == 0:
             state[node] = 2
-            aa_sim += 1
         elif state[node] == 1:
             state[node] = 3
-            ab_sim += 1
     
-    return state, informed, threshold_list, aa_sim, ab_sim
+    return state, informed, threshold_list
 
 def simulate_iteration(G, state, informed, threshold_list, alpha, lamb, gamma, V, t_range):
     """
@@ -57,6 +56,9 @@ def simulate_iteration(G, state, informed, threshold_list, alpha, lamb, gamma, V
     a_sim = np.zeros(t_range + 1)
     r_sim = np.zeros(t_range + 1)
 
+    aa_sim[0] = np.sum(state==2)
+    ab_sim[0] = np.sum(state==3)
+    a_sim[0] = aa_sim[0] + ab_sim[0]
     fracA = (np.sum(state == 2) + np.sum(state == 3)) / V
 
     for current_time in range(t_range):
@@ -64,9 +66,9 @@ def simulate_iteration(G, state, informed, threshold_list, alpha, lamb, gamma, V
 
         for node in range(V):
             rand = np.random.rand()
-            if state[node] == 0 and rand < alpha * fracA / threshold_list[node]:
+            if state[node] == 0 and rand < alpha * fracA:
                 to_aa.add(node)
-            elif state[node] == 1 and rand < alpha * fracA / threshold_list[node]:
+            elif state[node] == 1 and rand < alpha * fracA:
                 to_ab.add(node)
             elif state[node] in [2, 3] and rand < gamma:
                 if state[node] == 2:
@@ -102,7 +104,7 @@ def simulate_iteration(G, state, informed, threshold_list, alpha, lamb, gamma, V
             ab_sim[current_time + 1] -= 1
             r_sim[current_time + 1] += 1
 
-        a_sim[current_time] = aa_sim[current_time] + ab_sim[current_time]
+        a_sim[current_time + 1] = aa_sim[current_time + 1] + ab_sim[current_time + 1]
         fracA = (np.sum(state == 2) + np.sum(state == 3)) / V
 
     return aa_sim, ab_sim, a_sim, r_sim
