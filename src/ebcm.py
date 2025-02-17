@@ -1,4 +1,7 @@
-def calculate_dtheta(theta, q, lamb, gamma, rho0, alpha, k_vals, pk, z):
+import numpy as np
+from math import comb
+
+def calculate_dtheta(theta, q, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair):
     xi_s = 0
     for k2 in k_vals:
         Theta_k_a = np.array([
@@ -14,7 +17,7 @@ def calculate_dtheta(theta, q, lamb, gamma, rho0, alpha, k_vals, pk, z):
     dtheta = - lamb * (theta - xi_s) + gamma * (1 - theta) * (1 - lamb)
     return dtheta
 
-def calculate_dsl(theta, dthetadt, q, dqdt, lamb, gamma, rho0, alpha, k_vals, pk, z):
+def calculate_dsl(theta, dthetadt, q, dqdt, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair):
     dq_phi_k = 0
     q_dphi_k = 0
     for k in k_vals:
@@ -29,7 +32,7 @@ def calculate_dsl(theta, dthetadt, q, dqdt, lamb, gamma, rho0, alpha, k_vals, pk
     dsl = (1 - rho0) * dqdt * dq_phi_k + (1 - rho0) * q * q_dphi_k
     return dsl
 
-def calculate_dsh(theta, dthetadt, q, dqdt, lamb, gamma, rho0, alpha, k_vals, pk, z):
+def calculate_dsh(theta, dthetadt, q, dqdt, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair):
     dq_phi_k = 0
     q_dphi_k = 0
     if theta == 1:
@@ -60,13 +63,13 @@ def calculate_dsh(theta, dthetadt, q, dqdt, lamb, gamma, rho0, alpha, k_vals, pk
     return dsh
 
 # 微分方程式
-def sar_derivatives(y, t, args):
+def sar_derivatives(y, t, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair):
     theta, q, sl, sh, aa, ab, ra, rb = y
-    a = p_list[0] * aa + p_list[1] * ab
-    dthetadt = calculate_dtheta(theta, q, *args)
+    a = p * aa + (1 - p) * ab
+    dthetadt = calculate_dtheta(theta, q, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair)
     dqdt = q * ((1 - alpha * a) - 1)
-    dsldt = calculate_dsl(theta, dthetadt, q, dqdt, *args)
-    dshdt = calculate_dsh(theta, dthetadt, q, dqdt, *args)
+    dsldt = calculate_dsl(theta, dthetadt, q, dqdt, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair)
+    dshdt = calculate_dsh(theta, dthetadt, q, dqdt, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair)
     daadt = - dsldt - gamma * aa
     dabdt = - dshdt - gamma * ab
     dradt = gamma * aa
@@ -74,15 +77,15 @@ def sar_derivatives(y, t, args):
     return np.array([dthetadt, dqdt, dsldt, dshdt, daadt, dabdt, dradt, drbdt])
 
 # ルンゲクッタ法 (RK4)
-def runge_kutta4(func, y0, t, args=()):
+def runge_kutta4(func, y0, t, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair):
     n = len(t)
     y = np.zeros((n, len(y0)))
     y[0] = y0
     for i in range(n - 1):
         h = t[i + 1] - t[i]
-        k1 = func(y[i], t[i], args)
-        k2 = func(y[i] + h * k1 / 2, t[i] + h / 2, args)
-        k3 = func(y[i] + h * k2 / 2, t[i] + h / 2, args)
-        k4 = func(y[i] + h * k3, t[i] + h, args)
+        k1 = func(y[i], t[i], lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair)
+        k2 = func(y[i] + h * k1 / 2, t[i] + h / 2, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair)
+        k3 = func(y[i] + h * k2 / 2, t[i] + h / 2, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair)
+        k4 = func(y[i] + h * k3, t[i] + h, lamb, gamma, rho0, p, alpha, k_vals, pk, z, t_pair)
         y[i + 1] = y[i] + h * (k1 + 2 * k2 + 2 * k3 + k4) / 6
     return y
