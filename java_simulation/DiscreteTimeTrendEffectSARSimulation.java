@@ -22,11 +22,6 @@ public class DiscreteTimeTrendEffectSARSimulation {
 
     /**
      * ER(エルデシュ・レーニ)グラフを生成する。
-     *
-     * @param random       乱数生成器
-     * @param numVertices  頂点数
-     * @param averageDegree 平均次数
-     * @return 生成したグラフ情報（Graph クラスのインスタンス）
      */
     private static Graph generateErdosRenyiGraph(Random random, int numVertices, double averageDegree) {
         int maxEdges = (int) Math.floor(numVertices * averageDegree);
@@ -35,15 +30,14 @@ public class DiscreteTimeTrendEffectSARSimulation {
         int[] vertexDegrees = new int[numVertices];
         int edgeCount = 0;
 
-        // 重複エッジと自己ループを避けながら、エッジをランダムに選択
+        // 重複エッジと自己ループを避けながらエッジをランダムに選択
         Set<String> selectedEdges = new HashSet<>();
         int m = (int) (numVertices * averageDegree / 2);
         while (selectedEdges.size() < m) {
             int u = random.nextInt(numVertices);
             int v = random.nextInt(numVertices);
-            if (u == v) continue;  // 自己ループを除外
+            if (u == v) continue;  // 自己ループ除外
 
-            // 小さい方の頂点を先にしてエッジを一意に表現
             String edgeKey = (u < v) ? u + "-" + v : v + "-" + u;
             if (!selectedEdges.contains(edgeKey)) {
                 selectedEdges.add(edgeKey);
@@ -55,10 +49,8 @@ public class DiscreteTimeTrendEffectSARSimulation {
             }
         }
 
-        // -1 を除いたエッジリストに変換
         rawEdgeList = Arrays.stream(rawEdgeList).filter(x -> x != -1).toArray();
 
-        // 隣接リスト構築用に addressList と cursor を初期化
         int[] addressList = new int[numVertices];
         int[] cursor = new int[numVertices];
         for (int vertex = 0; vertex < numVertices - 1; vertex++) {
@@ -66,7 +58,6 @@ public class DiscreteTimeTrendEffectSARSimulation {
             cursor[vertex + 1] = cursor[vertex] + vertexDegrees[vertex];
         }
 
-        // 実際の隣接リスト（edgeList）の作成
         int[] edgeList = new int[2 * edgeCount];
         for (int edgeIndex = 0; edgeIndex < edgeCount; edgeIndex++) {
             int u = rawEdgeList[2 * edgeIndex];
@@ -83,18 +74,12 @@ public class DiscreteTimeTrendEffectSARSimulation {
     }
 
     /**
-     * 幅優先探索（BFS）により、グラフが連結かどうかを判定する。
-     *
-     * @param graph       グラフ情報
-     * @param numVertices 頂点数
-     * @return 連結なら true、そうでなければ false
+     * 幅優先探索（BFS）によりグラフが連結かどうか判定
      */
     private static boolean checkGraphConnectivity(Graph graph, int numVertices) {
         boolean[] visited = new boolean[numVertices];
         Queue<Integer> queue = new LinkedList<>();
         int startVertex = -1;
-
-        // 隣接頂点を持つ頂点を起点として探索開始
         for (int i = 0; i < numVertices; i++) {
             if (graph.cursor[i] - graph.addressList[i] > 0) {
                 startVertex = i;
@@ -104,11 +89,9 @@ public class DiscreteTimeTrendEffectSARSimulation {
         if (startVertex == -1) {
             return false;
         }
-
         visited[startVertex] = true;
         queue.add(startVertex);
         int visitedCount = 1;
-
         while (!queue.isEmpty()) {
             int current = queue.poll();
             for (int i = graph.addressList[current]; i < graph.cursor[current]; i++) {
@@ -124,17 +107,13 @@ public class DiscreteTimeTrendEffectSARSimulation {
     }
 
     /**
-     * シミュレーション引数を CSV に出力する。
-     *
-     * @param filename     出力先ファイル名
-     * @param alphaValues  α の値の配列
-     * @param lambdaValues λ の値の配列
-     * @param iterations   反復回数（ネットワーク反復×シミュレーション反復）
-     * @param maxTime      シミュレーションの最大時刻
+     * シミュレーション引数をCSVに出力
      */
-    private static void writeSimulationArgsCsv(String filename, double[] alphaValues, double[] lambdaValues,
+    private static void writeSimulationArgsCsv(String baseFilename, double[] alphaValues, double[] lambdaValues,
                                                  int iterations, int maxTime) throws IOException {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
+        String filename = baseFilename.replace(".csv", "") + ".csv";
+        String outputPath = "simulation_results/" + filename;
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath))) {
             writer.write("alphaValues,lambdaValues,iterations,maxTime");
             writer.newLine();
             writer.write(String.format("\"%s\",\"%s\",%d,%d",
@@ -146,39 +125,24 @@ public class DiscreteTimeTrendEffectSARSimulation {
     }
 
     /**
-     * シミュレーション結果（整数値データ）を CSV に出力する。
-     * データは 4 次元配列 [αのインデックス][λのインデックス][反復][時刻] の順に書き出す。
-     *
-     * @param baseFilename   出力ファイルの基本名（例："s_all_results.csv"）
-     * @param simulationData 4次元シミュレーション結果配列
-     * @param alphaValues    α の値の配列
-     * @param lambdaValues   λ の値の配列
-     * @param iterations     反復回数
-     * @param maxTime        シミュレーション最大時刻
-     * @param batchNumber    バッチ番号（1～numBatches）
+     * シミュレーション結果（4次元配列）をCSVに出力
+     * データは [α][λ][反復][時刻] の順で書き出す。
      */
     private static void writeSimulationResultCsv(String baseFilename, int[][][][] simulationData,
                                                   double[] alphaValues, double[] lambdaValues,
                                                   int iterations, int maxTime, int batchNumber) throws IOException {
         int numAlpha = alphaValues.length;
         int numLambda = lambdaValues.length;
-
-        String filename = baseFilename.replace(".csv", "") + batchNumber + ".csv";
-
-        // 結果のcsvファイルが大きくなるので、容量に余裕のある保存先を指定すると良い。
+        String filename = baseFilename.replace(".csv", "") + "_" + batchNumber + ".csv";
         String outputPath = "simulation_results/" + filename;
-        // String outputPath = "/Users/username/Downloads/dir/" + filename;
-
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath))) {
             writer.write("value");
             writer.newLine();
-
-            // 外側から順に、α、λ、反復、時刻の順で出力
-            for (int alphaIdx = 0; alphaIdx < numAlpha; alphaIdx++) {
-                for (int lambdaIdx = 0; lambdaIdx < numLambda; lambdaIdx++) {
+            for (int a = 0; a < numAlpha; a++) {
+                for (int l = 0; l < numLambda; l++) {
                     for (int iter = 0; iter < iterations; iter++) {
-                        for (int time = 0; time <= maxTime; time++) {
-                            writer.write(String.format("%d", simulationData[alphaIdx][lambdaIdx][iter][time]));
+                        for (int t = 0; t <= maxTime; t++) {
+                            writer.write(String.format("%d", simulationData[a][l][iter][t]));
                             writer.newLine();
                         }
                     }
@@ -188,39 +152,28 @@ public class DiscreteTimeTrendEffectSARSimulation {
     }
 
     /**
-     * シミュレーションパラメータの詳細情報を CSV に出力する。
-     *
-     * @param filename         出力先ファイル名
-     * @param graphType        ネットワーク種別（例："ER"）
-     * @param numVertices      頂点数
-     * @param averageDegree    平均次数
-     * @param lambdaValues     λ の値の配列
-     * @param alphaValues      α の値の配列
-     * @param maxTime          シミュレーションの最大時刻
-     * @param iterations       反復回数（ネットワーク反復×シミュレーション反復）
-     * @param p                アクティビスト選出の確率
-     * @param thresholdPair    閾値のペア（例：[1, 4]）
-     * @param initialAdoptionRate 初期採用率
-     * @param gamma            採用状態からの離脱確率
+     * シミュレーションパラメータ詳細情報をCSVに出力
      */
-    private static void writeSimulationParametersCsv(String filename, String graphType, int numVertices, double averageDegree,
-                                                       double[] lambdaValues, double[] alphaValues, int maxTime, int iterations,
-                                                       double p, int[] thresholdPair, double initialAdoptionRate, double gamma)
+    private static void writeSimulationParametersCsv(String baseFilename, String graphType, int numVertices, double averageDegree,
+                                                       int maxTime, int numBatches, int iterations,
+                                                       double p, int ta, int tb, double initialAdoptionRate, double gamma)
             throws IOException {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
+        String filename = baseFilename.replace(".csv", "") + ".csv";
+        String outputPath = "simulation_results/" + filename;
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath))) {
             writer.write("Parameter,Type,Value");
             writer.newLine();
             writeSingleParameter(writer, "Network", graphType);
             writeSingleParameter(writer, "numVertices", numVertices);
             writeSingleParameter(writer, "averageDegree", averageDegree);
             writeSingleParameter(writer, "maxTime", maxTime);
+            writeSingleParameter(writer, "numBatches", numBatches);
             writeSingleParameter(writer, "iterations", iterations);
             writeSingleParameter(writer, "p", p);
-            writeSingleParameter(writer, "thresholdPair", Arrays.toString(thresholdPair));
+            writeSingleParameter(writer, "ta", ta);
+            writeSingleParameter(writer, "tb", tb);
             writeSingleParameter(writer, "initialAdoptionRate", initialAdoptionRate);
             writeSingleParameter(writer, "gamma", gamma);
-            writeSingleParameter(writer, "lambdaValues", Arrays.toString(lambdaValues));
-            writeSingleParameter(writer, "alphaValues", Arrays.toString(alphaValues));
         }
     }
 
@@ -232,25 +185,19 @@ public class DiscreteTimeTrendEffectSARSimulation {
     }
 
     /**
-     * パラメータを動かすようにする
-     *
-     * @param a 下限
-     * @param b 上限（配列には含まれない）
-     * @param d 刻み幅
-     * @return パラメータの数値の配列
+     * パラメータを動かすためのメソッド
      */
     public static double[] arange(double a, double b, double d) {
-		ArrayList<Double> arrayValues = new ArrayList<>();
-		for (double mu = a; mu < b; mu+=d) {
-			arrayValues.add(mu);
-		}
-		
-		double[] listValues = new double[arrayValues.size()];
-		for (int i = 0; i < arrayValues.size(); i++) {
-			listValues[i] = arrayValues.get(i);
-		}
-		return listValues;
-	}
+        ArrayList<Double> arrayValues = new ArrayList<>();
+        for (double mu = a; mu < b; mu += d) {
+            arrayValues.add(mu);
+        }
+        double[] listValues = new double[arrayValues.size()];
+        for (int i = 0; i < arrayValues.size(); i++) {
+            listValues[i] = arrayValues.get(i);
+        }
+        return listValues;
+    }
 
     public static void main(String[] args) throws IOException {
         long startTime = System.nanoTime();
@@ -262,64 +209,62 @@ public class DiscreteTimeTrendEffectSARSimulation {
 
         // -------------------- シミュレーションパラメータ --------------------
         int maxTime = 100;
-        int networkIterationCount = 1;
-        int simulationIterationCount = 20;
+        int numBatches = 5;
+        int networkIterationCount = 4;
+        int simulationIterationCount = 50;
         int totalIterations = networkIterationCount * simulationIterationCount;
         double initialAdoptionRate = 1.0 / numVertices;
         double gamma = 1.0;
         double p = 0.2;
-        int[] thresholdPair = {1, 4};  // 例：1 または 4
+        int ta = 1;
+        int tb = 4;
+        int[] thresholdPair = {ta, tb};
 
-        // α, λ の値を生成（例：0〜1.1 を 0.01 刻み）
+        // α, λ の値（例：0〜1.1 を0.1刻み）
         double lambdaStep = 0.01;
-        double[] lambdaValues = arange(0, 1.0 + lambdaStep, lambdaStep);
+        double[] lambdaValues = arange(0, 1.0, lambdaStep);
         double alphaStep = 0.01;
-        double[] alphaValues = arange(0, 1.1 + alphaStep, alphaStep);
+        double[] alphaValues = arange(0, 1.1, alphaStep);
 
-        // シミュレーションパラメータを CSV に出力
-        writeSimulationParametersCsv("parameters.csv", graphType, numVertices, averageDegree,
-                lambdaValues, alphaValues, maxTime, totalIterations, p, thresholdPair, initialAdoptionRate, gamma);
+        // シミュレーションパラメータをCSVに出力
+        writeSimulationParametersCsv("parameters.csv", graphType, numVertices, averageDegree, maxTime, numBatches, totalIterations, p, ta, tb, initialAdoptionRate, gamma);
         writeSimulationArgsCsv("args.csv", alphaValues, lambdaValues, totalIterations, maxTime);
 
-        // -------------------- シミュレーション --------------------
         Random random = new Random();
         int numAlpha = alphaValues.length;
         int numLambda = lambdaValues.length;
 
-        int numBatches = 5;
-        // 各シミュレーション結果を格納する 4 次元配列（サイズ：[α][λ][反復][時刻=0～maxTime]）
-        int[][][][] sAll = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
-        int[][][][] aaAll = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
-        int[][][][] abAll = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
-        int[][][][] raAll = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
-        int[][][][] rbAll = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
-
-        // バッチごとにシミュレーションを実行
+        // -------------------- バッチ単位でシミュレーション --------------------
         for (int batch = 1; batch <= numBatches; batch++) {
+
+            // バッチごとに結果配列を新規作成
+            int[][][][] aaResults = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
+            int[][][][] abResults = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
+            int[][][][] rResults  = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
+
             for (int alphaIdx = 0; alphaIdx < numAlpha; alphaIdx++) {
                 double currentAlpha = alphaValues[alphaIdx];
-                if (alphaIdx % 20 == 0) {
-                    System.out.println("Processing alpha: " + currentAlpha);
+                if (alphaIdx % (int)(numAlpha / 10) == 0) {
+                    System.out.printf("alpha: " + currentAlpha);
                     long elapsedTime = System.nanoTime() - startTime;
                     long seconds = (elapsedTime / 1_000_000_000) % 60;
                     long minutes = (elapsedTime / 1_000_000_000 / 60) % 60;
                     long hours = (elapsedTime / 1_000_000_000) / 3600;
-                    System.out.printf("Elapsed Time: %d hours %d minutes %d seconds%n", hours, minutes, seconds);
+                    System.out.printf(" Elapsed Time: %d hours %d minutes %d seconds%n", hours, minutes, seconds);
                 }
                 for (int lambdaIdx = 0; lambdaIdx < numLambda; lambdaIdx++) {
                     double currentLambda = lambdaValues[lambdaIdx];
-                    if (alphaIdx % 20 == 0 && lambdaIdx % 20 == 0) {
-                        System.out.println("  Processing lambda: " + currentLambda);
+                    if (alphaIdx % (int)(numAlpha / 10) == 0 && lambdaIdx % (int)(numLambda / 10) == 0) {
+                        System.out.println("  --> lambda: " + currentLambda);
                     }
 
-                    // 各ネットワーク反復に対してシミュレーション実行
+                    // ネットワーク反復
                     for (int netIter = 0; netIter < networkIterationCount; netIter++) {
-                        // 連結グラフになるまでグラフを生成
+                        // 連結グラフが得られるまで生成
                         Graph graph;
                         do {
                             graph = generateErdosRenyiGraph(random, numVertices, averageDegree);
                         } while (!checkGraphConnectivity(graph, numVertices));
-
                         int[] edgeList = graph.edgeList;
                         int[] addressList = graph.addressList;
                         int[] cursor = graph.cursor;
@@ -328,11 +273,11 @@ public class DiscreteTimeTrendEffectSARSimulation {
                         for (int simIter = 0; simIter < simulationIterationCount; simIter++) {
                             int iterationIndex = netIter * simulationIterationCount + simIter;
 
-                            // 全ノードの初期閾値は thresholdPair[1] に設定
+                            // 初期閾値設定（すべてthresholdPair[1]で初期化）
                             int[] nodeThresholds = new int[numVertices];
                             Arrays.fill(nodeThresholds, thresholdPair[1]);
 
-                            // アクティビストの選出（p の割合）
+                            // アクティビストの選出（確率p）
                             int numActivists = (int) (p * numVertices);
                             List<Integer> nodeIndices = new ArrayList<>();
                             for (int v = 0; v < numVertices; v++) {
@@ -344,18 +289,13 @@ public class DiscreteTimeTrendEffectSARSimulation {
                                 nodeThresholds[node] = thresholdPair[0];
                             }
 
-                            // 状態変数の記録リスト（0: Susceptible, 1: AdoptedA, 2: AdoptedB, 3: RecoveredA, 4: RecoveredB）
-                            List<Integer> susceptibleList = new ArrayList<>();
-                            List<Integer> adoptedAList = new ArrayList<>();
-                            List<Integer> adoptedBList = new ArrayList<>();
-                            List<Integer> recoveredAList = new ArrayList<>();
-                            List<Integer> recoveredBList = new ArrayList<>();
-
+                            // ノード状態の初期化
+                            // 状態：0 = Susceptible, 1 = AdoptedA, 2 = AdoptedB, 3 = RecoveredA, 4 = RecoveredB
                             int[] nodeStates = new int[numVertices];
                             int currentAdoptedA = 0;
                             int currentAdoptedB = 0;
 
-                            // 初期採用者の設定
+                            // 初期採用者の設定（初期採用率に基づきランダム選出）
                             int initialAdopters = (int) (initialAdoptionRate * numVertices);
                             Collections.shuffle(nodeIndices);
                             List<Integer> initialAdoptersList = new ArrayList<>(nodeIndices.subList(0, initialAdopters));
@@ -369,13 +309,18 @@ public class DiscreteTimeTrendEffectSARSimulation {
                                 }
                             }
 
-                            susceptibleList.add(numVertices - initialAdopters);
+                            // 時系列データリスト：各リストのインデックスが時刻 t (0～maxTime)
+                            List<Integer> adoptedAList = new ArrayList<>();
+                            List<Integer> adoptedBList = new ArrayList<>();
+                            List<Integer> recoveredAList = new ArrayList<>();
+                            List<Integer> recoveredBList = new ArrayList<>();
+                            // 初期状態の記録
                             adoptedAList.add(currentAdoptedA);
                             adoptedBList.add(currentAdoptedB);
                             recoveredAList.add(0);
                             recoveredBList.add(0);
 
-                            // 各ノードに情報を伝達した隣接ノードを記録するリスト
+                            // 各ノードに伝達済みの隣接ノード集合を記録
                             List<Set<Integer>> informedNeighbors = new ArrayList<>();
                             for (int i = 0; i < numVertices; i++) {
                                 informedNeighbors.add(new HashSet<>());
@@ -384,15 +329,15 @@ public class DiscreteTimeTrendEffectSARSimulation {
                             int timeStep = 0;
                             int totalAdopted = currentAdoptedA + currentAdoptedB;
 
-                            // 時刻発展ループ
-                            while ((currentAdoptedA != 0 || currentAdoptedB != 0) && timeStep <= maxTime) {
+                            // 固定ステップ数maxTimeだけシミュレーション実行
+                            while (timeStep < maxTime) {
                                 Set<Integer> susceptibleToAdoptA = new HashSet<>();
                                 Set<Integer> susceptibleToAdoptB = new HashSet<>();
                                 Set<Integer> adoptedToRecoveredA = new HashSet<>();
                                 Set<Integer> adoptedToRecoveredB = new HashSet<>();
 
                                 for (int node = 0; node < numVertices; node++) {
-                                    if (nodeStates[node] == 0) {
+                                    if (nodeStates[node] == 0) {  // Susceptible
                                         if (random.nextDouble() < currentAlpha * totalAdopted / numVertices) {
                                             if (nodeThresholds[node] == thresholdPair[0]) {
                                                 susceptibleToAdoptA.add(node);
@@ -400,13 +345,12 @@ public class DiscreteTimeTrendEffectSARSimulation {
                                                 susceptibleToAdoptB.add(node);
                                             }
                                         }
-                                    } else if (nodeStates[node] == 1 || nodeStates[node] == 2) {
-                                        // 隣接ノードへ影響伝達
+                                    } else if (nodeStates[node] == 1 || nodeStates[node] == 2) {  // Adopted状態
                                         for (int i = addressList[node]; i < cursor[node]; i++) {
                                             int neighbor = edgeList[i];
-                                            if (nodeStates[neighbor] == 0) {
+                                            if (nodeStates[neighbor] == 0 && random.nextDouble() < currentLambda) {
                                                 informedNeighbors.get(neighbor).add(node);
-                                                if (informedNeighbors.get(neighbor).size() > nodeThresholds[neighbor]) {
+                                                if (informedNeighbors.get(neighbor).size() >= nodeThresholds[neighbor]) {
                                                     if (nodeThresholds[neighbor] == thresholdPair[0]) {
                                                         susceptibleToAdoptA.add(neighbor);
                                                     } else {
@@ -415,7 +359,7 @@ public class DiscreteTimeTrendEffectSARSimulation {
                                                 }
                                             }
                                         }
-                                        // γ の確率で採用状態から回復
+                                        // 採用状態から回復
                                         if (random.nextDouble() < gamma) {
                                             if (nodeStates[node] == 1) {
                                                 adoptedToRecoveredA.add(node);
@@ -452,56 +396,38 @@ public class DiscreteTimeTrendEffectSARSimulation {
                                     }
                                 }
 
-                                int susceptibleCount = susceptibleList.get(susceptibleList.size() - 1)
-                                        - susceptibleToAdoptA.size() - susceptibleToAdoptB.size();
-                                int adoptedACount = adoptedAList.get(adoptedAList.size() - 1)
-                                        + susceptibleToAdoptA.size() - adoptedToRecoveredA.size();
-                                int adoptedBCount = adoptedBList.get(adoptedBList.size() - 1)
-                                        + susceptibleToAdoptB.size() - adoptedToRecoveredB.size();
-                                int recoveredACount = recoveredAList.get(recoveredAList.size() - 1)
-                                        + adoptedToRecoveredA.size();
-                                int recoveredBCount = recoveredBList.get(recoveredBList.size() - 1)
-                                        + adoptedToRecoveredB.size();
-
-                                susceptibleList.add(susceptibleCount);
-                                adoptedAList.add(adoptedACount);
-                                adoptedBList.add(adoptedBCount);
-                                recoveredAList.add(recoveredACount);
-                                recoveredBList.add(recoveredBCount);
+                                // 次の時刻の記録
+                                adoptedAList.add(currentAdoptedA);
+                                adoptedBList.add(currentAdoptedB);
+                                int prevRecoveredA = recoveredAList.get(recoveredAList.size() - 1);
+                                int prevRecoveredB = recoveredBList.get(recoveredBList.size() - 1);
+                                recoveredAList.add(prevRecoveredA + adoptedToRecoveredA.size());
+                                recoveredBList.add(prevRecoveredB + adoptedToRecoveredB.size());
 
                                 timeStep++;
                                 totalAdopted = currentAdoptedA + currentAdoptedB;
-                            }
+                            } // end timeStep loop
 
-                            // シミュレーションが途中で終了した場合、maxTime まで最終値で埋める
-                            while (susceptibleList.size() <= maxTime) {
-                                susceptibleList.add(susceptibleList.get(susceptibleList.size() - 1));
-                                adoptedAList.add(adoptedAList.get(adoptedAList.size() - 1));
-                                adoptedBList.add(adoptedBList.get(adoptedBList.size() - 1));
-                                recoveredAList.add(recoveredAList.get(recoveredAList.size() - 1));
-                                recoveredBList.add(recoveredBList.get(recoveredBList.size() - 1));
-                            }
-
-                            // 結果を記録
+                            // 結果を各時刻ごとに保存（時刻0～maxTime）
                             for (int t = 0; t <= maxTime; t++) {
-                                sAll[alphaIdx][lambdaIdx][iterationIndex][t] = susceptibleList.get(t);
-                                aaAll[alphaIdx][lambdaIdx][iterationIndex][t] = adoptedAList.get(t);
-                                abAll[alphaIdx][lambdaIdx][iterationIndex][t] = adoptedBList.get(t);
-                                raAll[alphaIdx][lambdaIdx][iterationIndex][t] = recoveredAList.get(t);
-                                rbAll[alphaIdx][lambdaIdx][iterationIndex][t] = recoveredBList.get(t);
+                                int adoptedA = adoptedAList.get(t);
+                                int adoptedB = adoptedBList.get(t);
+                                aaResults[alphaIdx][lambdaIdx][iterationIndex][t] = adoptedA;
+                                abResults[alphaIdx][lambdaIdx][iterationIndex][t] = adoptedB;
+                                int recovA = recoveredAList.get(t);
+                                int recovB = recoveredBList.get(t);
+                                rResults[alphaIdx][lambdaIdx][iterationIndex][t] = recovA + recovB;
                             }
-                        } // end simulationIteration
-                    } // end networkIteration
+                        } // end simulationIteration loop
+                    } // end networkIteration loop
                 } // end lambda loop
             } // end alpha loop
 
-            // CSV への出力（各バッチ毎にファイルを作成）
-            writeSimulationResultCsv("s_all_results.csv", sAll, alphaValues, lambdaValues, totalIterations, maxTime, batch);
-            writeSimulationResultCsv("aa_all_results.csv", aaAll, alphaValues, lambdaValues, totalIterations, maxTime, batch);
-            writeSimulationResultCsv("ab_all_results.csv", abAll, alphaValues, lambdaValues, totalIterations, maxTime, batch);
-            writeSimulationResultCsv("ra_all_results.csv", raAll, alphaValues, lambdaValues, totalIterations, maxTime, batch);
-            writeSimulationResultCsv("rb_all_results.csv", rbAll, alphaValues, lambdaValues, totalIterations, maxTime, batch);
-        }
+            // 各バッチ毎にCSV出力（ファイル名にバッチ番号を付与）
+            writeSimulationResultCsv("aa_all_results.csv", aaResults, alphaValues, lambdaValues, totalIterations, maxTime, batch);
+            writeSimulationResultCsv("ab_all_results.csv", abResults, alphaValues, lambdaValues, totalIterations, maxTime, batch);
+            writeSimulationResultCsv("r_all_results.csv", rResults, alphaValues, lambdaValues, totalIterations, maxTime, batch);
+        } // end batch loop
 
         long endTime = System.nanoTime();
         long totalSeconds = (endTime - startTime) / 1_000_000_000;
