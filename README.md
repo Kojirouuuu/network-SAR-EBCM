@@ -154,18 +154,51 @@ cd network-SAR-EBCM
 
 # 依存パッケージのインストール
 pip install -r requirements.txt
+
+# Java環境の確認（Java 8以上が必要）
+java -version
 ```
 
 ### 4.2 シミュレーション実行
 
-1. Python スクリプトからの実行
+#### 4.2.1 推奨方法：Java 実装の使用
+
+Java 実装は大規模ネットワークでの効率的なシミュレーションに最適化されています。
+
+1. Java ファイルのコンパイル
+
+```bash
+cd java_simulation
+javac DiscreteTimeTrendEffectSARSimulation.java
+```
+
+2. シミュレーションの実行
+
+```bash
+java DiscreteTimeTrendEffectSARSimulation
+```
+
+主な利点：
+
+- 大規模ネットワーク（10,000 ノード以上）での効率的な処理
+- メモリ使用の最適化
+- 高速な実行速度
+- バッチ処理による大規模データの効率的な出力
+
+#### 4.2.2 代替方法：Python 実装の使用
+
+小規模なネットワークや、プロトタイピングには Python 実装も利用可能です。
 
 ```python
 from src.sar_simulation import initialize_simulation, simulate_iteration
 # シミュレーションの実行コード
 ```
 
-2. Jupyter Notebook からの実行
+注意：Python 実装は大規模ネットワークでの実行には非推奨です。
+
+#### 4.2.3 結果の分析
+
+シミュレーション結果の分析には、Jupyter Notebook を使用します：
 
 - `notebooks/analyze_from_java_results/analyze.ipynb`を参照
 
@@ -178,14 +211,12 @@ from src.sar_simulation import initialize_simulation, simulate_iteration
 - 出力項目：
   - 時間ステップ
   - 各状態のノード数
-  - 理論値との比較データ
 
 ### 5.2 可視化出力
 
 - 形式：PNG/PDF
 - 出力項目：
   - 時系列グラフ
-  - ネットワーク構造図
   - 理論値との比較グラフ
 
 ## 6. 制限事項
@@ -211,5 +242,5 @@ from src.sar_simulation import initialize_simulation, simulate_iteration
 
 ## 8. 参考文献
 
-[W. Wang, M. Tang, P. Shu, and Z. Wang “Dynamics of social contagions with heterogeneous
-adoption thresholds: crossover phenomena in phase transition” New Journal of Physics, 18(2016) 013029.](https://arxiv.org/abs/1509.03357)
+[W. Wang, M. Tang, P. Shu, and Z. Wang "Dynamics of social contagions with heterogeneous
+adoption thresholds: crossover phenomena in phase transition" New Journal of Physics, 18(2016) 013029.](https://arxiv.org/abs/1509.03357)
