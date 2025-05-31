@@ -51,51 +51,7 @@ def save_results_np(save_dir, alpha_values, lambda_values, itr, t_range, aa_resu
 
     print(f"CSVファイルの保存が完了しました。（保存先: {save_dir}）")
 
-def load_results_np(load_dir, alpha_values, lambda_values, itr, t_range):
-    """
-    指定されたディレクトリから結果をNumPy配列として読み込み、多次元配列に再構築する。
 
-    Args:
-        load_dir (str): 読み込み元のディレクトリ。
-        alpha_values (list): alphaの値のリスト。
-        lambda_values (list): lambdaの値のリスト。
-        itr (int): イテレーション数。
-        t_range (int): 時間範囲。
-
-    Returns:
-        aa_results, ab_results, a_results, r_results (ndarray): 再構築された結果配列。
-    """
-    shape = (len(alpha_values), len(lambda_values), itr, t_range + 1)
-
-    # ファイル名と対応するデータの読み込み
-    results_data = {
-        "aa_results.csv": None,
-        "ab_results.csv": None,
-        "a_results.csv": None,
-        "r_results.csv": None
-    }
-
-    for filename in results_data.keys():
-        file_path = os.path.join(load_dir, filename)
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"ファイルが見つかりません: {file_path}")
-
-        # usecols=4 は5番目の列（0始まり）を指します
-        results_data[filename] = np.loadtxt(file_path, delimiter=',', usecols=4, skiprows=1)
-
-    # データ数の確認
-    expected = np.prod(shape)
-    for key, data in results_data.items():
-        if data.size != expected:
-            raise ValueError(f"{key} のデータサイズが期待される形状と一致しません。")
-
-    # 配列の再構築
-    aa_results = results_data["aa_results.csv"].reshape(shape)
-    ab_results = results_data["ab_results.csv"].reshape(shape)
-    a_results = results_data["a_results.csv"].reshape(shape)
-    r_results = results_data["r_results.csv"].reshape(shape)
-
-    return aa_results, ab_results, a_results, r_results
 
 def align_to_max(time_series, ref_index):
     """

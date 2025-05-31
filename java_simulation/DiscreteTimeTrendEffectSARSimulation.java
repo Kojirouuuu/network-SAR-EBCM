@@ -209,9 +209,9 @@ public class DiscreteTimeTrendEffectSARSimulation {
 
         // -------------------- シミュレーションパラメータ --------------------
         int maxTime = 100;
-        int numBatches = 5;
+        int numBatches = 1;
         int networkIterationCount = 4;
-        int simulationIterationCount = 50;
+        int simulationIterationCount = 25;
         int totalIterations = networkIterationCount * simulationIterationCount;
         double initialAdoptionRate = 1.0 / numVertices;
         double gamma = 1.0;
@@ -238,9 +238,9 @@ public class DiscreteTimeTrendEffectSARSimulation {
         for (int batch = 1; batch <= numBatches; batch++) {
 
             // バッチごとに結果配列を新規作成
-            int[][][][] aaResults = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
-            int[][][][] abResults = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
-            int[][][][] rResults  = new int[numAlpha][numLambda][totalIterations][maxTime + 1];
+            int[][][][] aaResults = new int[numAlpha][numLambda][totalIterations][maxTime + 1]; // 活動家の採用者数
+            int[][][][] abResults = new int[numAlpha][numLambda][totalIterations][maxTime + 1]; // 偏屈者の採用者数
+            int[][][][] rResults  = new int[numAlpha][numLambda][totalIterations][maxTime + 1]; // 回復者数
 
             for (int alphaIdx = 0; alphaIdx < numAlpha; alphaIdx++) {
                 double currentAlpha = alphaValues[alphaIdx];
@@ -330,7 +330,7 @@ public class DiscreteTimeTrendEffectSARSimulation {
                             int totalAdopted = currentAdoptedA + currentAdoptedB;
 
                             // 固定ステップ数maxTimeだけシミュレーション実行
-                            while (timeStep < maxTime) {
+                            while (timeStep < maxTime && totalAdopted < numVertices) {
                                 Set<Integer> susceptibleToAdoptA = new HashSet<>();
                                 Set<Integer> susceptibleToAdoptB = new HashSet<>();
                                 Set<Integer> adoptedToRecoveredA = new HashSet<>();
@@ -338,6 +338,7 @@ public class DiscreteTimeTrendEffectSARSimulation {
 
                                 for (int node = 0; node < numVertices; node++) {
                                     if (nodeStates[node] == 0) {  // Susceptible
+                                        // 流行効果
                                         if (random.nextDouble() < currentAlpha * totalAdopted / numVertices) {
                                             if (nodeThresholds[node] == thresholdPair[0]) {
                                                 susceptibleToAdoptA.add(node);
@@ -346,6 +347,7 @@ public class DiscreteTimeTrendEffectSARSimulation {
                                             }
                                         }
                                     } else if (nodeStates[node] == 1 || nodeStates[node] == 2) {  // Adopted状態
+                                        // 口コミによる情報拡散
                                         for (int i = addressList[node]; i < cursor[node]; i++) {
                                             int neighbor = edgeList[i];
                                             if (nodeStates[neighbor] == 0 && random.nextDouble() < currentLambda) {
@@ -408,6 +410,15 @@ public class DiscreteTimeTrendEffectSARSimulation {
                                 totalAdopted = currentAdoptedA + currentAdoptedB;
                             } // end timeStep loop
 
+                            // 時刻がmaxTimeに達していない場合は、最後の時刻の値を維持
+                            if (timeStep != maxTime) {
+                                for (int t = timeStep; t < maxTime; t++) {
+                                    adoptedAList.add(adoptedAList.get(timeStep - 1));
+                                    adoptedBList.add(adoptedBList.get(timeStep - 1));
+                                    recoveredAList.add(recoveredAList.get(timeStep - 1));
+                                    recoveredBList.add(recoveredBList.get(timeStep - 1));
+                                }
+                            }
                             // 結果を各時刻ごとに保存（時刻0～maxTime）
                             for (int t = 0; t <= maxTime; t++) {
                                 int adoptedA = adoptedAList.get(t);
