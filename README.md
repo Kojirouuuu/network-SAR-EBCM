@@ -212,4 +212,4 @@ from src.sar_simulation import initialize_simulation, simulate_iteration
 ## 8. 参考文献
 
 [W. Wang, M. Tang, P. Shu, and Z. Wang “Dynamics of social contagions with heterogeneous
-adoption thresholds: crossover phenomena in phase transition” New Journal of Physics, 18(2016) 013029.](https://example.com)
+adoption thresholds: crossover phenomena in phase transition” New Journal of Physics, 18(2016) 013029.](https://arxiv.org/abs/1509.03357)
